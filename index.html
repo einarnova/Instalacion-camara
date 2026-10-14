@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>Plano Técnico CCTV - Almacén</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      font-family: 'JetBrains Mono', monospace;
+      margin: 0;
+      padding: 0;
+      background-color: #0f172a;
+      color: #f8fafc;
+    }
+    .cad-sheet-light {
+      background-color: #ffffff;
+      color: #0f172a;
+      background-image: 
+        linear-gradient(to right, rgba(148, 163, 184, 0.2) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.2) 1px, transparent 1px),
+        linear-gradient(to right, rgba(148, 163, 184, 0.4) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.4) 1px, transparent 1px);
+      background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
+    }
+    .cad-sheet-dark {
+      background-color: #0a192f;
+      color: #e2e8f0;
+      background-image: 
+        linear-gradient(to right, rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+        linear-gradient(to right, rgba(56, 189, 248, 0.18) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(56, 189, 248, 0.18) 1px, transparent 1px);
+      background-size: 20px 20px, 20px 20px, 100px 100px, 100px 100px;
+    }
+    .camera-node {
+      cursor: grab;
+      touch-action: none;
+      transition: filter 0.15s ease;
+    }
+    .camera-node:active {
+      cursor: grabbing;
+    }
+    .camera-node:hover {
+      filter: drop-shadow(0 0 6px rgba(239, 68, 68, 0.9));
+    }
+    .draggable-structure {
+      cursor: move;
+      touch-action: none;
+      transition: filter 0.15s ease;
+    }
+    .draggable-structure:hover {
+      filter: drop-shadow(0 0 5px rgba(2, 132, 199, 0.75));
+    }
+    .structure-selected {
+      filter: drop-shadow(0 0 7px rgba(250, 204, 21, 0.95));
+    }
+    @keyframes holdPulse {
+      0% { stroke-dashoffset: 138; }
+      100% { stroke-dashoffset: 0; }
+    }
+    .hold-delete-ring {
+      stroke-dasharray: 138;
+      stroke-dashoffset: 138;
+      animation: holdPulse 0.6s linear forwards;
+      pointer-events: none;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center p-2 sm:p-4">
+
+  <div class="no-print w-full max-w-5xl bg-slate-900 border border-slate-700 rounded-xl p-2.5 mb-2 flex flex-wrap items-center justify-between gap-2 shadow-lg">
+    <div class="flex items-center gap-2">
+      <span class="inline-block w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
+      <div>
+        <span class="text-xs sm:text-sm font-bold tracking-wider uppercase text-slate-200 block">PLANO TÉCNICO CCTV // ALMACÉN</span>
+        <span class="text-[10px] text-slate-400 block">Arrastra Cámaras, Portón, Oficina o Línea Celeste • Mantén presionada una cámara para Menú</span>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+      <button onclick="toggleChecklistPanel()" class="px-3 py-1.5 text-xs font-extrabold rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md transition flex items-center gap-1.5">
+        <span>📋</span> Validar Operatividad (<span id="top-ok-count">16/16</span>)
+      </button>
+      <button onclick="addNewCamera()" class="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow transition">
+        + Cámara
+      </button>
+      <button id="btn-undo" onclick="undoDeleteCamera()" class="hidden px-2.5 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-500 text-white shadow transition">
+        ↶ Restaurar Eliminada
+      </button>
+      <button onclick="restoreAllDefaultCameras()" class="px-2.5 py-1.5 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow transition">
+        ↺ Restablecer Cámaras
+      </button>
+      <button id="btn-block-mode" onclick="toggleBlockNaming()" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-600 transition">
+        Paredes: 4 Bloques (A, B, C, D)
+      </button>
+      <button id="btn-fov-style" onclick="cycleFOVStyle()" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-600 transition">
+        Estilo Conos: CAD Limpio
+      </button>
+      <button id="btn-fov-toggle" onclick="toggleFOV()" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-600 transition">
+        Conos Visión: ON
+      </button>
+      <button id="btn-theme" onclick="toggleTheme()" class="px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-600 transition">
+        Tema: Blanco CAD
+      </button>
+      <button onclick="downloadPNG()" class="px-3 py-1.5 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-500 text-white shadow transition">
+        Descargar Imagen
+      </button>
+    </div>
+  </div>
+
+  <!-- Panel Desplegable de Validación de Operatividad y Ubicación -->
+  <div id="checklist-panel" class="no-print w-full max-w-5xl bg-slate-900/95 border-2 border-amber-500/80 rounded-xl p-3 sm:p-4 mb-3 hidden flex-col gap-3 shadow-2xl">
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700 pb-2.5">
+      <div>
+        <h2 class="text-xs sm:text-sm font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+          📋 Control de Operatividad y Clasificación de Cámaras (Exterior / Interior / Aéreas)
+        </h2>
+        <p class="text-[11px] text-slate-300 mt-0.5">
+          Haz clic en el estado de cada cámara para alternar entre <b class="text-emerald-400">OPERATIVA (OK)</b>, <b class="text-amber-400">MANTENIMIENTO</b> o <b class="text-red-400">FALLA / SIN SEÑAL</b>. También puedes tocar una fila para localizarla en el plano.
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="setAllCamerasStatus('ok')" class="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-[11px] font-bold transition">
+          ✓ Marcar Todas OK
+        </button>
+        <button onclick="toggleChecklistPanel()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-600">
+          Cerrar ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- Resumen de KPIs de Operatividad -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+      <div class="bg-slate-800/90 border border-slate-700 rounded-lg p-2 flex items-center justify-between">
+        <span class="text-slate-300 font-semibold">Operativas (OK):</span>
+        <span id="kpi-ok" class="text-sm font-extrabold text-emerald-400">16</span>
+      </div>
+      <div class="bg-slate-800/90 border border-slate-700 rounded-lg p-2 flex items-center justify-between">
+        <span class="text-slate-300 font-semibold">En Revisión:</span>
+        <span id="kpi-warn" class="text-sm font-extrabold text-amber-400">0</span>
+      </div>
+      <div class="bg-slate-800/90 border border-slate-700 rounded-lg p-2 flex items-center justify-between">
+        <span class="text-slate-300 font-semibold">Con Falla (OFF):</span>
+        <span id="kpi-fail" class="text-sm font-extrabold text-red-400">0</span>
+      </div>
+      <div class="bg-slate-800/90 border border-purple-500/40 rounded-lg p-2 flex items-center justify-between">
+        <span class="text-purple-300 font-semibold">Lado Exterior:</span>
+        <span id="kpi-ext" class="text-sm font-extrabold text-purple-300">3 Cámaras</span>
+      </div>
+    </div>
+
+    <!-- Guía rápida de Cómo Verificar en campo/DVR -->
+    <div class="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 text-[11px] text-slate-300 grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div><b class="text-emerald-400">1. Imagen y Enfoque (DVR/NVR):</b> Verificar video en vivo sin parpadeo, lente limpio y que el ángulo cubra el bloque asignado.</div>
+      <div><b class="text-sky-400">2. Infrarrojo / Visión Nocturna:</b> Cubrir sensor de luz o probar de noche que los LEDs IR enciendan sin reflejo en pared o portón.</div>
+      <div><b class="text-amber-400">3. Grabación y Red/PoE:</b> Confirmar en reproducción (Playback) que guarde historial en disco duro y voltaje/conector estanco firme.</div>
+    </div>
+
+    <!-- Tabla Interactiva de las 16 Cámaras -->
+    <div class="overflow-x-auto max-h-80 overflow-y-auto rounded-lg border border-slate-700">
+      <table class="w-full text-left border-collapse text-xs">
+        <thead class="bg-slate-800 text-slate-300 uppercase text-[10px] sticky top-0 z-10">
+          <tr>
+            <th class="py-2 px-2.5">Cámara</th>
+            <th class="py-2 px-2.5">Ubicación / Pared</th>
+            <th class="py-2 px-2.5">Tipo / Lado</th>
+            <th class="py-2 px-2.5">Zona que Vigila</th>
+            <th class="py-2 px-2.5">Pruebas (Video / IR / Grab)</th>
+            <th class="py-2 px-2.5 text-center">Estado Operativo</th>
+          </tr>
+        </thead>
+        <tbody id="checklist-tbody" class="divide-y divide-slate-800 bg-slate-900/90 text-[11px]">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="relocate-banner" class="no-print w-full max-w-5xl bg-amber-500/20 border-2 border-amber-400 text-amber-200 rounded-xl px-3 py-2 mb-2 hidden items-center justify-between gap-2 text-xs font-bold shadow-lg">
+    <span id="relocate-banner-text">✥ MODO MOVER ACTIVO: Toca cualquier punto del plano (o arrastra la cámara) para colocarla en su nueva ubicación.</span>
+    <button onclick="cancelRelocateMode()" class="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white border border-amber-400">Terminar</button>
+  </div>
+
+  <div id="cam-editor" class="no-print w-full max-w-5xl bg-slate-800/95 border border-slate-600 rounded-xl px-3 py-2 mb-2 hidden flex-wrap items-center justify-between gap-3 text-xs shadow-md">
+    <div class="flex items-center gap-2">
+      <span id="selected-cam-label" class="font-bold text-red-400">CAM-01</span>
+      <span id="selected-cam-coords" class="text-[11px] text-slate-400 font-mono">(X:0, Y:0)</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-3 flex-1 max-w-xl">
+      <label class="flex items-center gap-1.5 flex-1 min-w-[120px]">
+        <span class="text-slate-300">Giro:</span>
+        <input id="cam-angle" type="range" min="0" max="360" value="90" class="w-full accent-red-500" oninput="updateSelectedCam()">
+      </label>
+      <label class="flex items-center gap-1.5 flex-1 min-w-[120px]">
+        <span class="text-slate-300">Alcance:</span>
+        <input id="cam-range" type="range" min="100" max="380" value="220" class="w-full accent-sky-400" oninput="updateSelectedCam()">
+      </label>
+      <button onclick="toggleSelectedCamType()" class="px-2 py-1 rounded bg-slate-700 hover:bg-slate-600 text-sky-300 border border-slate-500 transition">
+        Tipo: Interior/Exterior/Aérea
+      </button>
+      <button onclick="cycleSelectedCamStatus()" class="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white font-semibold transition">
+        Estado: OK / Falla
+      </button>
+      <button onclick="promptCameraAction(selectedCamId)" class="px-2 py-1 rounded bg-red-700/80 hover:bg-red-600 text-white font-semibold transition">
+        Mover / Eliminar
+      </button>
+    </div>
+    <button onclick="closeCamEditor()" class="px-2 py-1 rounded bg-slate-700 text-slate-300 hover:text-white">✕</button>
+  </div>
+
+  <div id="structure-editor" class="no-print w-full max-w-5xl bg-slate-800/95 border border-sky-500/60 rounded-xl px-3 py-2 mb-2 hidden flex-wrap items-center justify-between gap-3 text-xs shadow-md">
+    <div class="flex items-center gap-2">
+      <span id="selected-struct-label" class="font-bold text-sky-400">ESTRUCTURA</span>
+      <span class="text-[11px] text-slate-400">Arrástrala con el dedo/mouse para moverla</span>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button onclick="rotateSelectedStructure()" class="px-2.5 py-1 rounded bg-sky-700 hover:bg-sky-600 text-white font-semibold transition">
+        ↻ Girar 90° (Horizontal / Vertical)
+      </button>
+      <button onclick="resetStructuresPositions()" class="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 border border-slate-500 transition">
+        ↺ Posición Original
+      </button>
+      <button onclick="closeStructureEditor()" class="px-2.5 py-1 rounded bg-slate-700 text-slate-300 hover:text-white">✕</button>
+    </div>
+  </div>
+
+  <!-- Modal de Consulta al Mantener Presionada una Cámara -->
+  <div id="action-modal" class="no-print fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+    <div class="bg-slate-900 border-2 border-slate-600 rounded-2xl max-w-sm w-full p-5 shadow-2xl text-center">
+      <div class="w-12 h-12 rounded-full bg-red-500/20 border border-red-500 text-red-400 flex items-center justify-center mx-auto mb-3 text-xl font-extrabold" id="modal-cam-badge">
+        C1
+      </div>
+      <h3 class="text-sm sm:text-base font-extrabold text-white uppercase tracking-wide mb-1">
+        ¿Qué deseas hacer con la cámara <span id="modal-cam-name" class="text-red-400">C1</span>?
+      </h3>
+      <p class="text-xs text-slate-400 mb-4">
+        Elige si deseas cambiar su ubicación en el plano o eliminarla:
+      </p>
+      <div class="flex flex-col gap-2.5">
+        <button onclick="confirmMoveCameraFromModal()" class="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2">
+          <span>✥</span> Mover / Cambiar Ubicación
+        </button>
+        <button onclick="confirmDeleteCameraFromModal()" class="w-full py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg transition flex items-center justify-center gap-2">
+          <span>🗑️</span> Eliminar Cámara
+        </button>
+        <button onclick="closeActionModal()" class="w-full py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-msg" class="no-print fixed bottom-5 left-1/2 -translate-x-1/2 z-40 hidden bg-slate-900/95 text-white border border-sky-500 px-4 py-2 rounded-xl shadow-2xl text-xs font-bold items-center gap-2">
+    <span id="toast-text">Acción realizada</span>
+  </div>
+
+  <div id="blueprint-wrapper" class="w-full max-w-5xl cad-sheet-light rounded-lg shadow-2xl border-2 border-slate-800 overflow-hidden relative">
+    <svg id="cad-svg" viewBox="0 0 1000 1350" class="w-full h-auto block">
+      <defs>
+        <pattern id="gateHatch" width="12" height="12" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="0" x2="0" y2="12" stroke="#dc2626" stroke-width="3" />
+        </pattern>
+        <pattern id="wallHatch" width="8" height="8" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="0" x2="0" y2="8" stroke="#334155" stroke-width="1.5" />
+        </pattern>
+        <!-- Patrones técnicos CAD sin mezcla pesada de colores -->
+        <pattern id="fovHatchRed" width="14" height="14" patternTransform="rotate(35 0 0)" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="0" x2="0" y2="14" stroke="#dc2626" stroke-width="1" stroke-opacity="0.22" />
+        </pattern>
+        <pattern id="fovHatchBlue" width="14" height="14" patternTransform="rotate(-35 0 0)" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="0" x2="0" y2="14" stroke="#0284c7" stroke-width="1" stroke-opacity="0.24" />
+        </pattern>
+        <pattern id="fovHatchPurple" width="14" height="14" patternTransform="rotate(15 0 0)" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="0" x2="0" y2="14" stroke="#9333ea" stroke-width="1" stroke-opacity="0.24" />
+        </pattern>
+        <!-- Gradientes suaves calibrados para no saturar al superponerse -->
+        <radialGradient id="fovGradRed" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ef4444" stop-opacity="0.14" />
+          <stop offset="75%" stop-color="#ef4444" stop-opacity="0.05" />
+          <stop offset="100%" stop-color="#ef4444" stop-opacity="0.01" />
+        </radialGradient>
+        <radialGradient id="fovGradBlue" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#0284c7" stop-opacity="0.14" />
+          <stop offset="75%" stop-color="#0284c7" stop-opacity="0.05" />
+          <stop offset="100%" stop-color="#0284c7" stop-opacity="0.01" />
+        </radialGradient>
+        <radialGradient id="fovGradPurple" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#9333ea" stop-opacity="0.16" />
+          <stop offset="75%" stop-color="#9333ea" stop-opacity="0.06" />
+          <stop offset="100%" stop-color="#9333ea" stop-opacity="0.01" />
+        </radialGradient>
+      </defs>
+
+      <!-- Marco Exterior CAD -->
+      <rect x="20" y="20" width="960" height="1310" fill="none" stroke="#1e293b" stroke-width="3" class="cad-border" />
+      <rect x="30" y="30" width="940" height="1290" fill="none" stroke="#475569" stroke-width="1" class="cad-border" />
+
+      <!-- Rosa de los Vientos -->
+      <g transform="translate(905, 85)">
+        <circle cx="0" cy="0" r="26" fill="none" stroke="#1e293b" stroke-width="1.5" class="cad-stroke" />
+        <polygon points="0,-24 -7,6 0,0 7,6" fill="#dc2626" />
+        <text x="0" y="-30" text-anchor="middle" font-size="12" font-weight="800" fill="#1e293b" class="cad-text">N</text>
+      </g>
+
+      <!-- Fondo del Almacén -->
+      <rect x="160" y="140" width="660" height="980" fill="rgba(241, 245, 249, 0.35)" stroke="none" id="floor-bg" />
+
+      <!-- Capas Dinámicas -->
+      <g id="cyan-sector-layer"></g>
+
+      <!-- Columnas Estructurales -->
+      <g id="structural-columns" stroke="#334155" stroke-width="2" fill="#cbd5e1">
+        <!-- Líneas de ejes estructurales de techo (Vigas Aéreas) -->
+        <line x1="160" y1="450" x2="715" y2="450" stroke="#94a3b8" stroke-width="1" stroke-dasharray="8,6" />
+        <line x1="160" y1="700" x2="715" y2="700" stroke="#94a3b8" stroke-width="1" stroke-dasharray="8,6" />
+        <line x1="350" y1="140" x2="350" y2="1120" stroke="#94a3b8" stroke-width="1" stroke-dasharray="8,6" />
+        <line x1="550" y1="140" x2="550" y2="1120" stroke="#94a3b8" stroke-width="1" stroke-dasharray="8,6" />
+        <rect x="338" y="438" width="24" height="24" rx="2" />
+        <rect x="538" y="438" width="24" height="24" rx="2" />
+        <rect x="338" y="688" width="24" height="24" rx="2" />
+        <rect x="538" y="688" width="24" height="24" rx="2" />
+      </g>
+
+      <!-- Conos de Visión -->
+      <g id="fov-layer"></g>
+
+      <!-- Muros Perimetrales -->
+      <rect x="160" y="140" width="660" height="980" fill="none" stroke="#dc2626" stroke-width="10" stroke-linejoin="miter" />
+
+      <!-- Estructuras Movibles (Portón, Caseta, Oficina, Puerta) -->
+      <g id="movable-structures-layer"></g>
+
+      <!-- Bloques Perimetrales -->
+      <g id="perimeter-blocks-layer"></g>
+
+      <!-- Cámaras -->
+      <g id="cameras-layer"></g>
+
+      <!-- Cajetín Técnico Inferior -->
+      <g transform="translate(50, 1215)">
+        <rect x="0" y="0" width="900" height="85" fill="none" stroke="#1e293b" stroke-width="2" class="cad-border" />
+        <line x1="330" y1="0" x2="330" y2="85" stroke="#1e293b" stroke-width="1.5" class="cad-border" />
+        <line x1="650" y1="0" x2="650" y2="85" stroke="#1e293b" stroke-width="1.5" class="cad-border" />
+
+        <circle cx="26" cy="20" r="8" fill="#ef4444" stroke="#ffffff" stroke-width="2" />
+        <text x="42" y="24" font-size="11" font-weight="700" fill="#1e293b" class="cad-text">CÁMARA PARED (INTERIOR)</text>
+
+        <circle cx="26" cy="44" r="8" fill="#9333ea" stroke="#ffffff" stroke-width="2" />
+        <text x="42" y="48" font-size="11" font-weight="700" fill="#1e293b" class="cad-text">CÁMARA EXTERIOR (CALLE / ACCESOS)</text>
+
+        <circle cx="26" cy="68" r="8" fill="#0284c7" stroke="#ffffff" stroke-width="2" />
+        <text x="42" y="72" font-size="11" font-weight="700" fill="#1e293b" class="cad-text">CÁMARA AÉREA CENTRAL (TECHO)</text>
+
+        <rect x="348" y="15" width="64" height="18" rx="2" fill="#1e293b" />
+        <text x="380" y="28" text-anchor="middle" font-size="10" font-weight="800" fill="#fbbf24">BLOQUE A-D</text>
+        <text x="422" y="28" font-size="11" font-weight="700" fill="#1e293b" class="cad-text">4 PAREDES PERIMETRALES</text>
+
+        <line x1="348" y1="58" x2="412" y2="58" stroke="#0284c7" stroke-width="4" />
+        <text x="422" y="62" font-size="11" font-weight="700" fill="#1e293b" class="cad-text">ALMACÉN / 1° PISO OFICINA</text>
+
+        <text x="668" y="26" font-size="12" font-weight="800" fill="#1e293b" class="cad-text">PLANO: ALMACÉN GENERAL</text>
+        <text id="total-cam-count" x="668" y="47" font-size="11" font-weight="700" fill="#475569" class="cad-subtext">TOTAL CÁMARAS: 16 UNIDADES</text>
+        <text id="operational-summary-svg" x="668" y="68" font-size="11" font-weight="800" fill="#16a34a">OPERATIVAS: 16 / 16 (100%)</text>
+      </g>
+    </svg>
+  </div>
+
+  <script>
+    let showFOV = true;
+    // 0 = CAD Limpio (contorno + relleno mínimo sin empaste), 1 = Trama Técnica (rayado CAD), 2 = Solo Líneas (0% mezcla)
+    let fovStyleMode = 0;
+    let darkTheme = false;
+    // true = 4 Bloques Principales (1 por cada una de las 4 paredes: BLOQUE A, B, C, D)
+    // false = Vista subdividida por tramos (A1..D4)
+    let fourWallsMode = true;
+    let selectedCamId = null;
+    let selectedStructureKey = null;
+
+    let draggingCam = null;
+    let draggingStructure = null;
+    let structDragOffset = { dx: 0, dy: 0 };
+    let isDraggingMoved = false;
+    let dragStartSVG = { x: 0, y: 0 };
+    let longPressTimer = null;
+    let holdingCamId = null;
+    let modalTargetCamId = null;
+    let relocateModeCamId = null;
+    let deletedCamerasStack = [];
+    let toastTimeout = null;
+
+    // 4 Paredes principales = 4 Bloques (BLOQUE A, BLOQUE B, BLOQUE C, BLOQUE D)
+    const fourWallBlocks = [
+      { x1: 160, y1: 140, x2: 820, y2: 140, code: 'BLOQUE A (PARED NORTE)', labelPos: 'top' },
+      { x1: 820, y1: 140, x2: 820, y2: 1120, code: 'BLOQUE B (PARED ESTE)', labelPos: 'right' },
+      { x1: 820, y1: 1120, x2: 160, y2: 1120, code: 'BLOQUE C (PARED SUR)', labelPos: 'bottom' },
+      { x1: 160, y1: 1120, x2: 160, y2: 140, code: 'BLOQUE D (PARED OESTE - ACCESOS)', labelPos: 'left' }
+    ];
+
+    // Subdivisión opcional si el usuario desea alternar con el botón superior
+    const detailedWallSegments = [
+      { x1: 160, y1: 140, x2: 325, y2: 140, code: 'BLOQUE A1', labelPos: 'top' },
+      { x1: 325, y1: 140, x2: 490, y2: 140, code: 'BLOQUE A2', labelPos: 'top' },
+      { x1: 490, y1: 140, x2: 655, y2: 140, code: 'BLOQUE A3', labelPos: 'top' },
+      { x1: 655, y1: 140, x2: 820, y2: 140, code: 'BLOQUE A4', labelPos: 'top' },
+      { x1: 820, y1: 140, x2: 820, y2: 385, code: 'BLOQUE B1', labelPos: 'right' },
+      { x1: 820, y1: 385, x2: 820, y2: 630, code: 'BLOQUE B2', labelPos: 'right' },
+      { x1: 820, y1: 630, x2: 820, y2: 875, code: 'BLOQUE B3', labelPos: 'right' },
+      { x1: 820, y1: 875, x2: 820, y2: 1120, code: 'BLOQUE B4', labelPos: 'right' },
+      { x1: 820, y1: 1120, x2: 650, y2: 1120, code: 'BLOQUE C1', labelPos: 'bottom' },
+      { x1: 650, y1: 1120, x2: 490, y2: 1120, code: 'BLOQUE C2', labelPos: 'bottom' },
+      { x1: 490, y1: 1120, x2: 330, y2: 1120, code: 'BLOQUE C3', labelPos: 'bottom' },
+      { x1: 160, y1: 1120, x2: 160, y2: 920, code: 'BLOQUE D1', labelPos: 'left' },
+      { x1: 160, y1: 690, x2: 160, y2: 505, code: 'BLOQUE D2', labelPos: 'left' },
+      { x1: 160, y1: 505, x2: 160, y2: 320, code: 'BLOQUE D3', labelPos: 'left' },
+      { x1: 160, y1: 320, x2: 160, y2: 140, code: 'BLOQUE D4', labelPos: 'left' }
+    ];
+
+    const defaultStructures = {
+      cyanLine: {
+        key: 'cyanLine',
+        name: 'LÍNEA CELESTE (ALMACÉN / 1° PISO OFICINA)',
+        x: 715,
+        labelY: 540
+      },
+      oficina: {
+        key: 'oficina',
+        name: 'OFICINA (1° PISO)',
+        x: 706,
+        y: 896,
+        w: 110,
+        h: 220,
+        rotation: 0
+      },
+      porton: {
+        key: 'porton',
+        name: 'PORTÓN PRINCIPAL Y CASETA',
+        x: 156,
+        y: 855,
+        w: 135,
+        h: 32,
+        rotation: -90
+      },
+      puerta: {
+        key: 'puerta',
+        name: 'PUERTA PRINCIPAL',
+        x: 162,
+        y: 1030,
+        w: 165,
+        h: 32,
+        rotation: -90
+      }
+    };
+
+    let structures = JSON.parse(JSON.stringify(defaultStructures));
+
+    /*
+     * Numeración organizada con criterio técnico en sentido horario por bloques:
+     * - BLOQUE A (Pared Superior/Norte): C1, C2, C3, C4
+     * - BLOQUE C (Pared Inferior/Sur - Oficina): C5, C6, C7
+     * - BLOQUE D (Pared Izquierda/Oeste - Accesos):
+     *     -> Lado Exterior (Vigilancia de Calle y Accesos): C8 (Exterior Puerta), C9 (Exterior Portón/Caseta), C12 (Exterior Esquina Noroeste)
+     *     -> Lado Interior (Pared Oeste hacia adentro): C10 (Ingreso Portón), C11 (Nave Lateral Oeste)
+     * - ZONA CENTRAL AÉREA (Pilares / Techo): C13, C14, C15, C16
+     */
+    const initialCamerasData = [
+      // BLOQUE A (Pared Norte)
+      {
+        id: 'C1', x: 295, y: 146, angle: 86, fov: 70, range: 245,
+        type: 'wall', block: 'BLOQUE A', zone: 'Nave Norte - Izquierda',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 0, dy: -22 }
+      },
+      {
+        id: 'C2', x: 465, y: 146, angle: 90, fov: 72, range: 245,
+        type: 'wall', block: 'BLOQUE A', zone: 'Nave Norte - Centro',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 0, dy: -22 }
+      },
+      {
+        id: 'C3', x: 635, y: 146, angle: 94, fov: 70, range: 245,
+        type: 'wall', block: 'BLOQUE A', zone: 'Nave Norte - Derecha',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 0, dy: -22 }
+      },
+      {
+        id: 'C4', x: 816, y: 144, angle: 125, fov: 68, range: 265,
+        type: 'wall', block: 'BLOQUE A / B', zone: 'Esquina Noreste y Almacén Lateral',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 26, dy: -16 }
+      },
+
+      // BLOQUE C (Pared Sur y Sector Oficina)
+      {
+        id: 'C5', x: 710, y: 1114, angle: 268, fov: 66, range: 265,
+        type: 'wall', block: 'BLOQUE C', zone: 'Frente de Oficina 1° Piso y Pasillo',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 24, dy: 20 }
+      },
+      {
+        id: 'C6', x: 686, y: 1122, angle: 218, fov: 68, range: 245,
+        type: 'wall', block: 'BLOQUE C', zone: 'Zona Sur hacia Nave Principal',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: -26, dy: 20 }
+      },
+      {
+        id: 'C7', x: 322, y: 1115, angle: 248, fov: 72, range: 235,
+        type: 'wall', block: 'BLOQUE C', zone: 'Acceso Interior Puerta Principal',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 0, dy: 22 }
+      },
+
+      // BLOQUE D (Pared Oeste - Cámaras Exteriores e Interiores)
+      {
+        id: 'C8', x: 154, y: 1118, angle: 152, fov: 75, range: 225,
+        type: 'exterior', block: 'BLOQUE D (EXTERIOR)', zone: 'Vereda Exterior y Puerta Principal',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: -28, dy: 16 }
+      },
+      {
+        id: 'C9', x: 175, y: 938, angle: 145, fov: 76, range: 235,
+        type: 'exterior', block: 'BLOQUE D (EXTERIOR)', zone: 'Exterior Portón Principal y Caseta',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 30, dy: 12 }
+      },
+      {
+        id: 'C10', x: 160, y: 775, angle: 0, fov: 75, range: 235,
+        type: 'wall', block: 'BLOQUE D', zone: 'Patio de Maniobras Interno (Portón)',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 32, dy: -10 }
+      },
+      {
+        id: 'C11', x: 166, y: 442, angle: 15, fov: 72, range: 235,
+        type: 'wall', block: 'BLOQUE D', zone: 'Lateral Izquierdo Media Nave',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 32, dy: -8 }
+      },
+      {
+        id: 'C12', x: 160, y: 140, angle: 138, fov: 72, range: 250,
+        type: 'exterior', block: 'BLOQUE D (EXTERIOR)', zone: 'Perímetro Exterior Noroeste (Calle)',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: -28, dy: -16 }
+      },
+
+      // ZONA CENTRAL AÉREA (Pilares / Vigas de Techo)
+      {
+        id: 'C13', x: 350, y: 450, angle: 42, fov: 85, range: 255,
+        type: 'interior', block: 'AÉREA PILAR NO', zone: 'Cobertura Aérea Centro-SurEste',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: -28, dy: -18 }
+      },
+      {
+        id: 'C14', x: 550, y: 450, angle: 138, fov: 85, range: 255,
+        type: 'interior', block: 'AÉREA PILAR NE', zone: 'Cobertura Aérea Centro-SurOeste',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 28, dy: -18 }
+      },
+      {
+        id: 'C15', x: 350, y: 700, angle: 318, fov: 85, range: 255,
+        type: 'interior', block: 'AÉREA PILAR SO', zone: 'Cobertura Aérea Centro-NorEste',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: -28, dy: 22 }
+      },
+      {
+        id: 'C16', x: 550, y: 700, angle: 222, fov: 85, range: 255,
+        type: 'interior', block: 'AÉREA PILAR SE', zone: 'Cobertura Aérea Centro-NorOeste',
+        status: 'ok', checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 28, dy: 22 }
+      }
+    ];
+
+    let cameras = JSON.parse(JSON.stringify(initialCamerasData));
+
+    function polarToCartesian(cx, cy, r, angleInDegrees) {
+      const rad = (angleInDegrees * Math.PI) / 180.0;
+      return {
+        x: cx + r * Math.cos(rad),
+        y: cy + r * Math.sin(rad)
+      };
+    }
+
+    function createFOVSectorPath(cx, cy, r, directionDeg, fovDeg) {
+      const startAngle = directionDeg - fovDeg / 2;
+      const endAngle = directionDeg + fovDeg / 2;
+      const start = polarToCartesian(cx, cy, r, startAngle);
+      const end = polarToCartesian(cx, cy, r, endAngle);
+      const largeArcFlag = fovDeg <= 180 ? '0' : '1';
+      return [
+        'M', cx, cy,
+        'L', start.x.toFixed(1), start.y.toFixed(1),
+        'A', r, r, 0, largeArcFlag, 1, end.x.toFixed(1), end.y.toFixed(1),
+        'Z'
+      ].join(' ');
+    }
+
+    function renderMovableStructures() {
+      const cyanLayer = document.getElementById('cyan-sector-layer');
+      const structLayer = document.getElementById('movable-structures-layer');
+      cyanLayer.innerHTML = '';
+      structLayer.innerHTML = '';
+
+      const lineX = structures.cyanLine.x;
+      const sectorWidth = Math.max(20, 820 - lineX);
+
+      const cyanGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      cyanGroup.setAttribute('class', 'draggable-structure');
+      cyanGroup.addEventListener('pointerdown', (e) => onStructurePointerDown(e, 'cyanLine'));
+
+      const sectorBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      sectorBg.setAttribute('x', lineX);
+      sectorBg.setAttribute('y', '145');
+      sectorBg.setAttribute('width', sectorWidth);
+      sectorBg.setAttribute('height', '970');
+      sectorBg.setAttribute('fill', 'rgba(14, 165, 233, 0.09)');
+      cyanGroup.appendChild(sectorBg);
+
+      const mainCyanLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      mainCyanLine.setAttribute('x1', lineX);
+      mainCyanLine.setAttribute('y1', '140');
+      mainCyanLine.setAttribute('x2', lineX);
+      mainCyanLine.setAttribute('y2', '1120');
+      mainCyanLine.setAttribute('stroke', '#0284c7');
+      mainCyanLine.setAttribute('stroke-width', selectedStructureKey === 'cyanLine' ? '7' : '5');
+      cyanGroup.appendChild(mainCyanLine);
+
+      const dashCyanLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      dashCyanLine.setAttribute('x1', lineX);
+      dashCyanLine.setAttribute('y1', '140');
+      dashCyanLine.setAttribute('x2', lineX);
+      dashCyanLine.setAttribute('y2', '1120');
+      dashCyanLine.setAttribute('stroke', '#38bdf8');
+      dashCyanLine.setAttribute('stroke-width', '2');
+      dashCyanLine.setAttribute('stroke-dasharray', '12,6');
+      cyanGroup.appendChild(dashCyanLine);
+
+      const labelCenterX = lineX + sectorWidth / 2;
+      const labelG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      labelG.setAttribute('transform', `translate(${labelCenterX}, ${structures.cyanLine.labelY}) rotate(-90)`);
+
+      const labelRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      labelRect.setAttribute('x', '-145');
+      labelRect.setAttribute('y', '-15');
+      labelRect.setAttribute('width', '290');
+      labelRect.setAttribute('height', '30');
+      labelRect.setAttribute('rx', '4');
+      labelRect.setAttribute('fill', '#0369a1');
+      labelRect.setAttribute('stroke', '#38bdf8');
+      labelRect.setAttribute('stroke-width', '1.5');
+      labelG.appendChild(labelRect);
+
+      const labelTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      labelTxt.setAttribute('x', '0');
+      labelTxt.setAttribute('y', '4');
+      labelTxt.setAttribute('text-anchor', 'middle');
+      labelTxt.setAttribute('font-size', '12');
+      labelTxt.setAttribute('font-weight', '800');
+      labelTxt.setAttribute('fill', '#ffffff');
+      labelTxt.textContent = 'ALMACÉN // 1° PISO OFICINA';
+      labelG.appendChild(labelTxt);
+
+      cyanGroup.appendChild(labelG);
+      cyanLayer.appendChild(cyanGroup);
+
+      const ofi = structures.oficina;
+      const ofiGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      ofiGroup.setAttribute('class', `draggable-structure ${selectedStructureKey === 'oficina' ? 'structure-selected' : ''}`);
+      ofiGroup.setAttribute('transform', `translate(${ofi.x}, ${ofi.y}) rotate(${ofi.rotation}, ${ofi.w / 2}, ${ofi.h / 2})`);
+      ofiGroup.addEventListener('pointerdown', (e) => onStructurePointerDown(e, 'oficina'));
+
+      const ofiRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      ofiRect.setAttribute('x', '0');
+      ofiRect.setAttribute('y', '0');
+      ofiRect.setAttribute('width', ofi.w);
+      ofiRect.setAttribute('height', ofi.h);
+      ofiRect.setAttribute('fill', 'rgba(2, 132, 199, 0.18)');
+      ofiRect.setAttribute('stroke', '#0284c7');
+      ofiRect.setAttribute('stroke-width', '3.5');
+      ofiGroup.appendChild(ofiRect);
+
+      const ofiDoorArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      ofiDoorArc.setAttribute('d', `M 0,40 A 38,38 0 0,1 38,78 L 0,78 Z`);
+      ofiDoorArc.setAttribute('fill', 'rgba(56, 189, 248, 0.22)');
+      ofiDoorArc.setAttribute('stroke', '#0284c7');
+      ofiDoorArc.setAttribute('stroke-width', '1.5');
+      ofiDoorArc.setAttribute('stroke-dasharray', '4,3');
+      ofiGroup.appendChild(ofiDoorArc);
+
+      const ofiTag = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      ofiTag.setAttribute('x', ofi.w / 2 - 44);
+      ofiTag.setAttribute('y', ofi.h / 2 - 22);
+      ofiTag.setAttribute('width', '88');
+      ofiTag.setAttribute('height', '44');
+      ofiTag.setAttribute('rx', '4');
+      ofiTag.setAttribute('fill', '#0284c7');
+      ofiTag.setAttribute('stroke', '#ffffff');
+      ofiTag.setAttribute('stroke-width', '1.5');
+      ofiGroup.appendChild(ofiTag);
+
+      const ofiText1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      ofiText1.setAttribute('x', ofi.w / 2);
+      ofiText1.setAttribute('y', ofi.h / 2 - 4);
+      ofiText1.setAttribute('text-anchor', 'middle');
+      ofiText1.setAttribute('font-size', '12');
+      ofiText1.setAttribute('font-weight', '800');
+      ofiText1.setAttribute('fill', '#ffffff');
+      ofiText1.textContent = 'OFICINA';
+      ofiGroup.appendChild(ofiText1);
+
+      const ofiText2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      ofiText2.setAttribute('x', ofi.w / 2);
+      ofiText2.setAttribute('y', ofi.h / 2 + 12);
+      ofiText2.setAttribute('text-anchor', 'middle');
+      ofiText2.setAttribute('font-size', '10');
+      ofiText2.setAttribute('font-weight', '700');
+      ofiText2.setAttribute('fill', '#bae6fd');
+      ofiText2.textContent = '1° PISO';
+      ofiGroup.appendChild(ofiText2);
+
+      structLayer.appendChild(ofiGroup);
+
+      const porton = structures.porton;
+      const portonGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      portonGroup.setAttribute('class', `draggable-structure ${selectedStructureKey === 'porton' ? 'structure-selected' : ''}`);
+      portonGroup.setAttribute('transform', `translate(${porton.x}, ${porton.y}) rotate(${porton.rotation})`);
+      portonGroup.addEventListener('pointerdown', (e) => onStructurePointerDown(e, 'porton'));
+
+      const pHighlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      pHighlight.setAttribute('x', -porton.w / 2 - 5);
+      pHighlight.setAttribute('y', -16);
+      pHighlight.setAttribute('width', porton.w + 10);
+      pHighlight.setAttribute('height', '32');
+      pHighlight.setAttribute('rx', '4');
+      pHighlight.setAttribute('fill', 'rgba(239, 68, 68, 0.35)');
+      pHighlight.setAttribute('stroke', '#dc2626');
+      pHighlight.setAttribute('stroke-width', '1.5');
+      pHighlight.setAttribute('stroke-dasharray', '4,3');
+      portonGroup.appendChild(pHighlight);
+
+      const pOuter = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      pOuter.setAttribute('x', -porton.w / 2);
+      pOuter.setAttribute('y', -16);
+      pOuter.setAttribute('width', porton.w);
+      pOuter.setAttribute('height', '32');
+      pOuter.setAttribute('rx', '4');
+      pOuter.setAttribute('fill', '#ffffff');
+      pOuter.setAttribute('stroke', '#dc2626');
+      pOuter.setAttribute('stroke-width', '4');
+      portonGroup.appendChild(pOuter);
+
+      const pHatch = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      pHatch.setAttribute('x', -porton.w / 2 + 4);
+      pHatch.setAttribute('y', -12);
+      pHatch.setAttribute('width', porton.w - 8);
+      pHatch.setAttribute('height', '24');
+      pHatch.setAttribute('fill', 'url(#gateHatch)');
+      portonGroup.appendChild(pHatch);
+
+      const pTagBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      pTagBg.setAttribute('x', '-85');
+      pTagBg.setAttribute('y', '20');
+      pTagBg.setAttribute('width', '170');
+      pTagBg.setAttribute('height', '24');
+      pTagBg.setAttribute('rx', '3');
+      pTagBg.setAttribute('fill', '#dc2626');
+      portonGroup.appendChild(pTagBg);
+
+      const pTagTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      pTagTxt.setAttribute('x', '0');
+      pTagTxt.setAttribute('y', '37');
+      pTagTxt.setAttribute('text-anchor', 'middle');
+      pTagTxt.setAttribute('font-size', '11');
+      pTagTxt.setAttribute('font-weight', '800');
+      pTagTxt.setAttribute('fill', '#ffffff');
+      pTagTxt.textContent = 'PORTÓN Y CASETA';
+      portonGroup.appendChild(pTagTxt);
+
+      structLayer.appendChild(portonGroup);
+
+      const puerta = structures.puerta;
+      const puertaGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      puertaGroup.setAttribute('class', `draggable-structure ${selectedStructureKey === 'puerta' ? 'structure-selected' : ''}`);
+      puertaGroup.setAttribute('transform', `translate(${puerta.x}, ${puerta.y}) rotate(${puerta.rotation})`);
+      puertaGroup.addEventListener('pointerdown', (e) => onStructurePointerDown(e, 'puerta'));
+
+      const prHighlight = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      prHighlight.setAttribute('x', -puerta.w / 2 - 5);
+      prHighlight.setAttribute('y', -16);
+      prHighlight.setAttribute('width', puerta.w + 10);
+      prHighlight.setAttribute('height', '32');
+      prHighlight.setAttribute('rx', '4');
+      prHighlight.setAttribute('fill', 'rgba(250, 204, 21, 0.38)');
+      prHighlight.setAttribute('stroke', '#eab308');
+      prHighlight.setAttribute('stroke-width', '1.5');
+      prHighlight.setAttribute('stroke-dasharray', '4,3');
+      puertaGroup.appendChild(prHighlight);
+
+      const prLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      prLine.setAttribute('x1', -puerta.w / 2);
+      prLine.setAttribute('y1', '0');
+      prLine.setAttribute('x2', puerta.w / 2);
+      prLine.setAttribute('y2', '0');
+      prLine.setAttribute('stroke', '#0284c7');
+      prLine.setAttribute('stroke-width', '12');
+      prLine.setAttribute('stroke-linecap', 'round');
+      puertaGroup.appendChild(prLine);
+
+      const prSwing = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      prSwing.setAttribute('d', `M ${-puerta.w / 2 + 5},0 A 130,130 0 0,1 ${puerta.w / 2 - 15},-120`);
+      prSwing.setAttribute('fill', 'none');
+      prSwing.setAttribute('stroke', '#0284c7');
+      prSwing.setAttribute('stroke-width', '1.5');
+      prSwing.setAttribute('stroke-dasharray', '6,4');
+      puertaGroup.appendChild(prSwing);
+
+      const prTagBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      prTagBg.setAttribute('x', '-75');
+      prTagBg.setAttribute('y', '20');
+      prTagBg.setAttribute('width', '150');
+      prTagBg.setAttribute('height', '24');
+      prTagBg.setAttribute('rx', '3');
+      prTagBg.setAttribute('fill', '#0284c7');
+      puertaGroup.appendChild(prTagBg);
+
+      const prTagTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      prTagTxt.setAttribute('x', '0');
+      prTagTxt.setAttribute('y', '37');
+      prTagTxt.setAttribute('text-anchor', 'middle');
+      prTagTxt.setAttribute('font-size', '12');
+      prTagTxt.setAttribute('font-weight', '800');
+      prTagTxt.setAttribute('fill', '#ffffff');
+      prTagTxt.textContent = 'PUERTA PRINCIPAL';
+      puertaGroup.appendChild(prTagTxt);
+
+      structLayer.appendChild(puertaGroup);
+    }
+
+    function renderPerimeterBlocks() {
+      const layer = document.getElementById('perimeter-blocks-layer');
+      layer.innerHTML = '';
+
+      const activeSegments = fourWallsMode ? fourWallBlocks : detailedWallSegments;
+
+      activeSegments.forEach((seg) => {
+        const code = seg.code;
+        const midX = (seg.x1 + seg.x2) / 2;
+        const midY = (seg.y1 + seg.y2) / 2;
+
+        const tick1 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        tick1.setAttribute('cx', seg.x1);
+        tick1.setAttribute('cy', seg.y1);
+        tick1.setAttribute('r', '4');
+        tick1.setAttribute('fill', '#1e293b');
+        tick1.setAttribute('stroke', '#ffffff');
+        tick1.setAttribute('stroke-width', '1.5');
+        layer.appendChild(tick1);
+
+        const tick2 = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        tick2.setAttribute('cx', seg.x2);
+        tick2.setAttribute('cy', seg.y2);
+        tick2.setAttribute('r', '4');
+        tick2.setAttribute('fill', '#1e293b');
+        tick2.setAttribute('stroke', '#ffffff');
+        tick2.setAttribute('stroke-width', '1.5');
+        layer.appendChild(tick2);
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        let tx = midX;
+        let ty = midY;
+        let rotation = 0;
+
+        if (seg.labelPos === 'top') {
+          ty = midY - 36;
+        } else if (seg.labelPos === 'bottom') {
+          ty = midY + 36;
+        } else if (seg.labelPos === 'right') {
+          tx = midX + 38;
+          rotation = 90;
+        } else if (seg.labelPos === 'left') {
+          tx = midX - 38;
+          rotation = -90;
+        }
+
+        g.setAttribute('transform', `translate(${tx}, ${ty}) rotate(${rotation})`);
+
+        const length = Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1);
+        const dimLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        dimLine.setAttribute('x1', -length / 2 + 12);
+        dimLine.setAttribute('y1', '0');
+        dimLine.setAttribute('x2', length / 2 - 12);
+        dimLine.setAttribute('y2', '0');
+        dimLine.setAttribute('stroke', darkTheme ? '#94a3b8' : '#475569');
+        dimLine.setAttribute('stroke-width', '1.5');
+        dimLine.setAttribute('stroke-dasharray', '6,4');
+        g.appendChild(dimLine);
+
+        const badgeWidth = Math.max(96, code.length * 7.5 + 18);
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', -badgeWidth / 2);
+        rect.setAttribute('y', '-12');
+        rect.setAttribute('width', badgeWidth);
+        rect.setAttribute('height', '24');
+        rect.setAttribute('rx', '4');
+        rect.setAttribute('fill', '#1e293b');
+        rect.setAttribute('stroke', '#fbbf24');
+        rect.setAttribute('stroke-width', '1.5');
+        g.appendChild(rect);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.setAttribute('x', '0');
+        text.setAttribute('y', '4');
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('font-size', '11');
+        text.setAttribute('font-weight', '800');
+        text.setAttribute('fill', '#fbbf24');
+        text.textContent = code;
+        g.appendChild(text);
+
+        layer.appendChild(g);
+      });
+    }
+
+    function renderCameras() {
+      const fovLayer = document.getElementById('fov-layer');
+      const camLayer = document.getElementById('cameras-layer');
+      fovLayer.innerHTML = '';
+      camLayer.innerHTML = '';
+
+      const countLabel = document.getElementById('total-cam-count');
+      if (countLabel) {
+        countLabel.textContent = `TOTAL CÁMARAS: ${cameras.length} UNIDADES`;
+      }
+
+      cameras.forEach((cam) => {
+        const isWall = cam.type === 'wall';
+        const isExterior = cam.type === 'exterior';
+        const status = cam.status || 'ok';
+
+        // Color según clasificación (Rojo = Pared Interior, Morado = Exterior Calle/Accesos, Azul = Aérea Central)
+        let mainColor = '#0284c7';
+        if (isWall) mainColor = '#dc2626';
+        if (isExterior) mainColor = '#9333ea';
+
+        // Si la cámara está en falla, el cono se atenúa o se muestra en gris/ámbar
+        if (showFOV && status !== 'fail') {
+          const fovGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          const isSelected = selectedCamId === cam.id;
+
+          let fillValue = 'none';
+          if (fovStyleMode === 0) {
+            fillValue = isWall ? 'url(#fovGradRed)' : (isExterior ? 'url(#fovGradPurple)' : 'url(#fovGradBlue)');
+          } else if (fovStyleMode === 1) {
+            fillValue = isWall ? 'url(#fovHatchRed)' : (isExterior ? 'url(#fovHatchPurple)' : 'url(#fovHatchBlue)');
+          } else {
+            fillValue = isSelected ? 'rgba(56, 189, 248, 0.12)' : 'none';
+          }
+
+          const conePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          conePath.setAttribute('d', createFOVSectorPath(cam.x, cam.y, cam.range, cam.angle, cam.fov));
+          conePath.setAttribute('fill', fillValue);
+          conePath.setAttribute('stroke', mainColor);
+          conePath.setAttribute('stroke-width', isSelected ? '2.4' : '1.3');
+          conePath.setAttribute('stroke-opacity', isSelected ? '0.95' : '0.65');
+          conePath.setAttribute('stroke-dasharray', '6,4');
+          fovGroup.appendChild(conePath);
+
+          const midArcRadius = Math.round(cam.range * 0.6);
+          const startAng = cam.angle - cam.fov / 2;
+          const endAng = cam.angle + cam.fov / 2;
+          const arcStart = polarToCartesian(cam.x, cam.y, midArcRadius, startAng);
+          const arcEnd = polarToCartesian(cam.x, cam.y, midArcRadius, endAng);
+          const midArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          midArc.setAttribute('d', `M ${arcStart.x.toFixed(1)} ${arcStart.y.toFixed(1)} A ${midArcRadius} ${midArcRadius} 0 0 1 ${arcEnd.x.toFixed(1)} ${arcEnd.y.toFixed(1)}`);
+          midArc.setAttribute('fill', 'none');
+          midArc.setAttribute('stroke', mainColor);
+          midArc.setAttribute('stroke-width', '0.9');
+          midArc.setAttribute('stroke-opacity', '0.35');
+          midArc.setAttribute('stroke-dasharray', '2,4');
+          fovGroup.appendChild(midArc);
+
+          const axisEnd = polarToCartesian(cam.x, cam.y, cam.range * 0.92, cam.angle);
+          const axisLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          axisLine.setAttribute('x1', cam.x);
+          axisLine.setAttribute('y1', cam.y);
+          axisLine.setAttribute('x2', axisEnd.x);
+          axisLine.setAttribute('y2', axisEnd.y);
+          axisLine.setAttribute('stroke', mainColor);
+          axisLine.setAttribute('stroke-width', isSelected ? '1.8' : '1.1');
+          axisLine.setAttribute('stroke-opacity', '0.55');
+          axisLine.setAttribute('stroke-dasharray', '4,4');
+          fovGroup.appendChild(axisLine);
+
+          fovLayer.appendChild(fovGroup);
+        }
+
+        const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        nodeGroup.setAttribute('class', 'camera-node');
+        nodeGroup.addEventListener('pointerdown', (e) => onCameraPointerDown(e, cam));
+        nodeGroup.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          promptCameraAction(cam.id);
+        });
+
+        if (selectedCamId === cam.id || relocateModeCamId === cam.id) {
+          const halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          halo.setAttribute('cx', cam.x);
+          halo.setAttribute('cy', cam.y);
+          halo.setAttribute('r', relocateModeCamId === cam.id ? '23' : '19');
+          halo.setAttribute('fill', 'none');
+          halo.setAttribute('stroke', relocateModeCamId === cam.id ? '#38bdf8' : '#facc15');
+          halo.setAttribute('stroke-width', '3');
+          halo.setAttribute('stroke-dasharray', '5,3');
+          nodeGroup.appendChild(halo);
+        }
+
+        if (holdingCamId === cam.id) {
+          const holdRing = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          holdRing.setAttribute('cx', cam.x);
+          holdRing.setAttribute('cy', cam.y);
+          holdRing.setAttribute('r', '22');
+          holdRing.setAttribute('fill', 'none');
+          holdRing.setAttribute('stroke', '#f59e0b');
+          holdRing.setAttribute('stroke-width', '4');
+          holdRing.setAttribute('class', 'hold-delete-ring');
+          nodeGroup.appendChild(holdRing);
+        }
+
+        const lensGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        lensGroup.setAttribute('transform', `translate(${cam.x}, ${cam.y}) rotate(${cam.angle})`);
+
+        const housing = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        housing.setAttribute('points', '4,-6 17,-9 17,9 4,6');
+        housing.setAttribute('fill', '#1e293b');
+        housing.setAttribute('stroke', '#ffffff');
+        housing.setAttribute('stroke-width', '1.2');
+        lensGroup.appendChild(housing);
+
+        nodeGroup.appendChild(lensGroup);
+
+        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        dot.setAttribute('cx', cam.x);
+        dot.setAttribute('cy', cam.y);
+        dot.setAttribute('r', '12');
+        dot.setAttribute('fill', status === 'fail' ? '#64748b' : (isWall ? '#ef4444' : (isExterior ? '#9333ea' : '#0284c7')));
+        dot.setAttribute('stroke', '#ffffff');
+        dot.setAttribute('stroke-width', '2.5');
+        nodeGroup.appendChild(dot);
+
+        // Indicador LED de Operatividad en la esquina del nodo de la cámara
+        const statusColor = status === 'ok' ? '#22c55e' : (status === 'warn' ? '#f59e0b' : '#ef4444');
+        const statusDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        statusDot.setAttribute('cx', cam.x + 9);
+        statusDot.setAttribute('cy', cam.y - 9);
+        statusDot.setAttribute('r', '4.5');
+        statusDot.setAttribute('fill', statusColor);
+        statusDot.setAttribute('stroke', '#0f172a');
+        statusDot.setAttribute('stroke-width', '1.2');
+        nodeGroup.appendChild(statusDot);
+
+        const tagX = cam.x + cam.labelOffset.dx;
+        const tagY = cam.y + cam.labelOffset.dy;
+        const badgeText = isExterior ? `${cam.id} EXT` : cam.id;
+        const tagW = isExterior ? 46 : 32;
+
+        const tagBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        tagBg.setAttribute('x', tagX - tagW / 2);
+        tagBg.setAttribute('y', tagY - 9);
+        tagBg.setAttribute('width', tagW);
+        tagBg.setAttribute('height', '16');
+        tagBg.setAttribute('rx', '3');
+        tagBg.setAttribute('fill', '#0f172a');
+        tagBg.setAttribute('stroke', mainColor);
+        tagBg.setAttribute('stroke-width', '1.2');
+        nodeGroup.appendChild(tagBg);
+
+        const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        label.setAttribute('x', tagX);
+        label.setAttribute('y', tagY + 3);
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('font-size', '9.5');
+        label.setAttribute('font-weight', '800');
+        label.setAttribute('fill', '#ffffff');
+        label.textContent = badgeText;
+        nodeGroup.appendChild(label);
+
+        camLayer.appendChild(nodeGroup);
+      });
+
+      renderChecklistTable();
+    }
+
+    function getSVGCoords(evt) {
+      const svg = document.getElementById('cad-svg');
+      const pt = svg.createSVGPoint();
+      pt.x = evt.clientX;
+      pt.y = evt.clientY;
+      const transformed = pt.matrixTransform(svg.getScreenCTM().inverse());
+      return {
+        x: Math.max(45, Math.min(955, Math.round(transformed.x))),
+        y: Math.max(45, Math.min(1195, Math.round(transformed.y)))
+      };
+    }
+
+    function onStructurePointerDown(e, key) {
+      if (relocateModeCamId) return;
+      e.stopPropagation();
+      e.preventDefault();
+
+      closeCamEditor();
+      selectedStructureKey = key;
+      const st = structures[key];
+      const coords = getSVGCoords(e);
+
+      draggingStructure = st;
+      if (key === 'cyanLine') {
+        structDragOffset = { dx: coords.x - st.x, dy: coords.y - st.labelY };
+      } else {
+        structDragOffset = { dx: coords.x - st.x, dy: coords.y - st.y };
+      }
+
+      const stEditor = document.getElementById('structure-editor');
+      stEditor.classList.remove('hidden');
+      stEditor.classList.add('flex');
+      document.getElementById('selected-struct-label').textContent = st.name;
+
+      renderMovableStructures();
+    }
+
+    function rotateSelectedStructure() {
+      if (!selectedStructureKey || selectedStructureKey === 'cyanLine') {
+        showToast('ℹ️ La línea divisoria celeste se desplaza horizontalmente');
+        return;
+      }
+      const st = structures[selectedStructureKey];
+      st.rotation = (st.rotation + 90) % 360;
+      renderMovableStructures();
+      showToast(`↻ ${st.name} girado a ${st.rotation}°`);
+    }
+
+    function resetStructuresPositions() {
+      structures = JSON.parse(JSON.stringify(defaultStructures));
+      renderMovableStructures();
+      showToast('↺ Portón, Caseta, Oficina, Puerta y Línea Celeste en posición original');
+    }
+
+    function closeStructureEditor() {
+      selectedStructureKey = null;
+      const stEditor = document.getElementById('structure-editor');
+      stEditor.classList.add('hidden');
+      stEditor.classList.remove('flex');
+      renderMovableStructures();
+    }
+
+    function onCameraPointerDown(e, cam) {
+      e.stopPropagation();
+      e.preventDefault();
+
+      closeStructureEditor();
+      selectCamera(cam.id);
+
+      const coords = getSVGCoords(e);
+      draggingCam = cam;
+      isDraggingMoved = false;
+      dragStartSVG = { x: coords.x, y: coords.y };
+      holdingCamId = cam.id;
+      renderCameras();
+
+      clearTimeout(longPressTimer);
+      longPressTimer = setTimeout(() => {
+        if (draggingCam && !isDraggingMoved && holdingCamId === cam.id) {
+          const targetId = cam.id;
+          draggingCam = null;
+          holdingCamId = null;
+          renderCameras();
+          promptCameraAction(targetId);
+        }
+      }, 600);
+    }
+
+    function onBlueprintClickForRelocate(e) {
+      if (!relocateModeCamId) return;
+      const cam = cameras.find(c => c.id === relocateModeCamId);
+      if (!cam) {
+        cancelRelocateMode();
+        return;
+      }
+      const coords = getSVGCoords(e);
+      cam.x = coords.x;
+      cam.y = coords.y;
+
+      const movedId = cam.id;
+      cancelRelocateMode();
+      selectCamera(movedId);
+      showToast(`✥ Cámara ${movedId} reubicada en (X:${cam.x}, Y:${cam.y})`);
+    }
+
+    function onGlobalPointerMove(e) {
+      if (draggingStructure) {
+        const coords = getSVGCoords(e);
+        if (draggingStructure.key === 'cyanLine') {
+          draggingStructure.x = Math.max(220, Math.min(790, coords.x - structDragOffset.dx));
+          draggingStructure.labelY = Math.max(280, Math.min(980, coords.y - structDragOffset.dy));
+        } else {
+          draggingStructure.x = Math.max(70, Math.min(890, coords.x - structDragOffset.dx));
+          draggingStructure.y = Math.max(90, Math.min(1150, coords.y - structDragOffset.dy));
+        }
+        renderMovableStructures();
+        return;
+      }
+
+      if (!draggingCam) return;
+      const coords = getSVGCoords(e);
+      const dist = Math.hypot(coords.x - dragStartSVG.x, coords.y - dragStartSVG.y);
+
+      if (dist > 7) {
+        isDraggingMoved = true;
+        clearTimeout(longPressTimer);
+        if (holdingCamId !== null) {
+          holdingCamId = null;
+        }
+      }
+
+      if (isDraggingMoved) {
+        draggingCam.x = coords.x;
+        draggingCam.y = coords.y;
+
+        const coordsLabel = document.getElementById('selected-cam-coords');
+        if (coordsLabel) {
+          coordsLabel.textContent = `(X:${draggingCam.x}, Y:${draggingCam.y})`;
+        }
+        renderCameras();
+      }
+    }
+
+    function onGlobalPointerUp() {
+      clearTimeout(longPressTimer);
+      if (holdingCamId !== null) {
+        holdingCamId = null;
+        renderCameras();
+      }
+      draggingCam = null;
+      draggingStructure = null;
+      isDraggingMoved = false;
+    }
+
+    function promptCameraAction(camId) {
+      if (!camId) return;
+      modalTargetCamId = camId;
+      document.getElementById('modal-cam-badge').textContent = camId;
+      document.getElementById('modal-cam-name').textContent = camId;
+
+      const modal = document.getElementById('action-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeActionModal() {
+      modalTargetCamId = null;
+      const modal = document.getElementById('action-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function confirmMoveCameraFromModal() {
+      const targetId = modalTargetCamId;
+      closeActionModal();
+      if (!targetId) return;
+
+      relocateModeCamId = targetId;
+      selectCamera(targetId);
+
+      const banner = document.getElementById('relocate-banner');
+      const bannerTxt = document.getElementById('relocate-banner-text');
+      bannerTxt.textContent = `✥ MOVER CÁMARA ${targetId}: Toca cualquier lugar del plano (o arrástrala) para colocarla en su nueva ubicación.`;
+      banner.classList.remove('hidden');
+      banner.classList.add('flex');
+
+      renderCameras();
+      showToast(`✥ Toca el plano donde deseas ubicar la cámara ${targetId}`);
+    }
+
+    function cancelRelocateMode() {
+      relocateModeCamId = null;
+      const banner = document.getElementById('relocate-banner');
+      banner.classList.add('hidden');
+      banner.classList.remove('flex');
+      renderCameras();
+    }
+
+    function confirmDeleteCameraFromModal() {
+      const targetId = modalTargetCamId;
+      closeActionModal();
+      if (!targetId) return;
+      removeCameraById(targetId);
+    }
+
+    function removeCameraById(id) {
+      const index = cameras.findIndex(c => c.id === id);
+      if (index === -1) return;
+
+      const removed = cameras.splice(index, 1)[0];
+      deletedCamerasStack.push(removed);
+
+      const undoBtn = document.getElementById('btn-undo');
+      if (undoBtn) undoBtn.classList.remove('hidden');
+
+      if (relocateModeCamId === id) {
+        cancelRelocateMode();
+      }
+
+      if (selectedCamId === id) {
+        closeCamEditor();
+      } else {
+        renderCameras();
+      }
+
+      showToast(`🗑️ Cámara ${removed.id} eliminada (Puedes restaurarla arriba)`);
+    }
+
+    function undoDeleteCamera() {
+      if (deletedCamerasStack.length === 0) return;
+      const restored = deletedCamerasStack.pop();
+      cameras.push(restored);
+
+      if (deletedCamerasStack.length === 0) {
+        document.getElementById('btn-undo').classList.add('hidden');
+      }
+
+      selectCamera(restored.id);
+      showToast(`↶ Cámara ${restored.id} restablecida en su posición`);
+    }
+
+    function restoreAllDefaultCameras() {
+      cameras = JSON.parse(JSON.stringify(initialCamerasData));
+      deletedCamerasStack = [];
+      document.getElementById('btn-undo').classList.add('hidden');
+      cancelRelocateMode();
+      renderCameras();
+      showToast('↺ Se han restablecido las 16 cámaras originales');
+    }
+
+    function addNewCamera() {
+      let nextNum = 1;
+      while (cameras.some(c => c.id === `C${nextNum}`)) {
+        nextNum++;
+      }
+      const newCam = {
+        id: `C${nextNum}`,
+        x: 480,
+        y: 560,
+        angle: 90,
+        fov: 78,
+        range: 250,
+        type: 'wall',
+        block: 'BLOQUE A',
+        zone: 'Nueva Zona Asignada',
+        status: 'ok',
+        checks: { video: true, ir: true, rec: true },
+        labelOffset: { dx: 0, dy: -20 }
+      };
+      cameras.push(newCam);
+      selectCamera(newCam.id);
+      showToast(`+ Cámara ${newCam.id} añadida en el centro (Arrástrala a su lugar)`);
+    }
+
+    function toggleSelectedCamType() {
+      if (!selectedCamId) return;
+      const cam = cameras.find(c => c.id === selectedCamId);
+      if (!cam) return;
+      const order = ['wall', 'exterior', 'interior'];
+      const nextIdx = (order.indexOf(cam.type) + 1) % order.length;
+      cam.type = order[nextIdx];
+      renderCameras();
+      const names = { wall: 'Pared Interior', exterior: 'Lado Exterior (Calle/Acceso)', interior: 'Aérea Central (Techo)' };
+      showToast(`🎥 ${cam.id} cambiada a: ${names[cam.type]}`);
+    }
+
+    function toggleChecklistPanel() {
+      const panel = document.getElementById('checklist-panel');
+      if (panel.classList.contains('hidden')) {
+        panel.classList.remove('hidden');
+        panel.classList.add('flex');
+        renderChecklistTable();
+      } else {
+        panel.classList.add('hidden');
+        panel.classList.remove('flex');
+      }
+    }
+
+    function cycleCameraStatus(camId, evt) {
+      if (evt) evt.stopPropagation();
+      const cam = cameras.find(c => c.id === camId);
+      if (!cam) return;
+      const order = ['ok', 'warn', 'fail'];
+      const next = order[(order.indexOf(cam.status || 'ok') + 1) % order.length];
+      cam.status = next;
+      if (next === 'ok') {
+        cam.checks = { video: true, ir: true, rec: true };
+      } else if (next === 'fail') {
+        cam.checks = { video: false, ir: false, rec: false };
+      }
+      renderCameras();
+    }
+
+    function cycleSelectedCamStatus() {
+      if (!selectedCamId) return;
+      cycleCameraStatus(selectedCamId);
+    }
+
+    function toggleCamCheckItem(camId, key, evt) {
+      if (evt) evt.stopPropagation();
+      const cam = cameras.find(c => c.id === camId);
+      if (!cam) return;
+      if (!cam.checks) cam.checks = { video: true, ir: true, rec: true };
+      cam.checks[key] = !cam.checks[key];
+
+      const allTrue = cam.checks.video && cam.checks.ir && cam.checks.rec;
+      const allFalse = !cam.checks.video && !cam.checks.ir && !cam.checks.rec;
+      cam.status = allTrue ? 'ok' : (allFalse ? 'fail' : 'warn');
+      renderCameras();
+    }
+
+    function setAllCamerasStatus(status) {
+      cameras.forEach(c => {
+        c.status = status;
+        c.checks = { video: status === 'ok', ir: status === 'ok', rec: status === 'ok' };
+      });
+      renderCameras();
+      showToast('✓ Todas las cámaras marcadas como OPERATIVAS (OK)');
+    }
+
+    function renderChecklistTable() {
+      const tbody = document.getElementById('checklist-tbody');
+      if (!tbody) return;
+
+      let okCount = 0;
+      let warnCount = 0;
+      let failCount = 0;
+      let extCount = 0;
+
+      tbody.innerHTML = '';
+
+      cameras.forEach((cam) => {
+        const st = cam.status || 'ok';
+        if (st === 'ok') okCount++;
+        else if (st === 'warn') warnCount++;
+        else failCount++;
+
+        if (cam.type === 'exterior') extCount++;
+
+        const checks = cam.checks || { video: true, ir: true, rec: true };
+
+        const tr = document.createElement('tr');
+        tr.className = `hover:bg-slate-800/80 cursor-pointer transition ${selectedCamId === cam.id ? 'bg-slate-800' : ''}`;
+        tr.onclick = () => selectCamera(cam.id);
+
+        let typeBadge = '';
+        if (cam.type === 'exterior') {
+          typeBadge = `<span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/50 font-bold">EXTERIOR (CALLE)</span>`;
+        } else if (cam.type === 'wall') {
+          typeBadge = `<span class="px-2 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/50 font-bold">PARED INTERIOR</span>`;
+        } else {
+          typeBadge = `<span class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/50 font-bold">AÉREA (TECHO)</span>`;
+        }
+
+        let statusBtn = '';
+        if (st === 'ok') {
+          statusBtn = `<button onclick="cycleCameraStatus('${cam.id}', event)" class="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold w-28">✓ OPERATIVA</button>`;
+        } else if (st === 'warn') {
+          statusBtn = `<button onclick="cycleCameraStatus('${cam.id}', event)" class="px-2.5 py-1 rounded-md bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold w-28">⚠ REVISIÓN</button>`;
+        } else {
+          statusBtn = `<button onclick="cycleCameraStatus('${cam.id}', event)" class="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-500 text-white font-extrabold w-28">✕ FALLA / OFF</button>`;
+        }
+
+        tr.innerHTML = `
+          <td class="py-2 px-2.5 font-extrabold text-white">${cam.id}</td>
+          <td class="py-2 px-2.5 font-semibold text-amber-300">${cam.block || 'BLOQUE'}</td>
+          <td class="py-2 px-2.5">${typeBadge}</td>
+          <td class="py-2 px-2.5 text-slate-300">${cam.zone || 'Vigilancia General'}</td>
+          <td class="py-2 px-2.5">
+            <div class="flex items-center gap-1.5">
+              <button onclick="toggleCamCheckItem('${cam.id}', 'video', event)" class="px-1.5 py-0.5 rounded border text-[10px] font-bold ${checks.video ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-800 border-slate-600 text-slate-400'}">Video</button>
+              <button onclick="toggleCamCheckItem('${cam.id}', 'ir', event)" class="px-1.5 py-0.5 rounded border text-[10px] font-bold ${checks.ir ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-800 border-slate-600 text-slate-400'}">IR Noche</button>
+              <button onclick="toggleCamCheckItem('${cam.id}', 'rec', event)" class="px-1.5 py-0.5 rounded border text-[10px] font-bold ${checks.rec ? 'bg-emerald-950 border-emerald-500 text-emerald-300' : 'bg-slate-800 border-slate-600 text-slate-400'}">Grabación</button>
+            </div>
+          </td>
+          <td class="py-2 px-2.5 text-center">${statusBtn}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      const total = cameras.length;
+      const pct = total > 0 ? Math.round((okCount / total) * 100) : 0;
+
+      document.getElementById('kpi-ok').textContent = okCount;
+      document.getElementById('kpi-warn').textContent = warnCount;
+      document.getElementById('kpi-fail').textContent = failCount;
+      document.getElementById('kpi-ext').textContent = `${extCount} Cámaras`;
+      document.getElementById('top-ok-count').textContent = `${okCount}/${total}`;
+
+      const svgSummary = document.getElementById('operational-summary-svg');
+      if (svgSummary) {
+        svgSummary.textContent = `OPERATIVAS: ${okCount} / ${total} (${pct}%)`;
+        svgSummary.setAttribute('fill', failCount > 0 ? '#dc2626' : (warnCount > 0 ? '#d97706' : '#16a34a'));
+      }
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById('toast-msg');
+      const text = document.getElementById('toast-text');
+      if (!toast || !text) return;
+      text.textContent = message;
+      toast.classList.remove('hidden');
+      toast.classList.add('flex');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('hidden');
+        toast.classList.remove('flex');
+      }, 2800);
+    }
+
+    function selectCamera(id) {
+      selectedCamId = id;
+      const cam = cameras.find(c => c.id === id);
+      if (!cam) return;
+
+      const editor = document.getElementById('cam-editor');
+      editor.classList.remove('hidden');
+      editor.classList.add('flex');
+
+      document.getElementById('selected-cam-label').textContent = `CÁMARA ${cam.id}`;
+      document.getElementById('selected-cam-coords').textContent = `(X:${cam.x}, Y:${cam.y})`;
+      document.getElementById('cam-angle').value = cam.angle;
+      document.getElementById('cam-range').value = cam.range;
+      renderCameras();
+    }
+
+    function updateSelectedCam() {
+      if (!selectedCamId) return;
+      const cam = cameras.find(c => c.id === selectedCamId);
+      if (!cam) return;
+
+      cam.angle = Number(document.getElementById('cam-angle').value);
+      cam.range = Number(document.getElementById('cam-range').value);
+      renderCameras();
+    }
+
+    function closeCamEditor() {
+      selectedCamId = null;
+      const editor = document.getElementById('cam-editor');
+      editor.classList.add('hidden');
+      editor.classList.remove('flex');
+      renderCameras();
+    }
+
+    function toggleBlockNaming() {
+      fourWallsMode = !fourWallsMode;
+      const btn = document.getElementById('btn-block-mode');
+      btn.textContent = fourWallsMode
+        ? 'Paredes: 4 Bloques (A, B, C, D)'
+        : 'Paredes: Subdividido (A1..D4)';
+      renderPerimeterBlocks();
+    }
+
+    function toggleFOV() {
+      showFOV = !showFOV;
+      const btn = document.getElementById('btn-fov-toggle');
+      btn.textContent = showFOV ? 'Conos Visión: ON' : 'Conos Visión: OFF';
+      renderCameras();
+    }
+
+    function cycleFOVStyle() {
+      fovStyleMode = (fovStyleMode + 1) % 3;
+      const btn = document.getElementById('btn-fov-style');
+      const labels = [
+        'Estilo Conos: CAD Limpio',
+        'Estilo Conos: Trama Técnica',
+        'Estilo Conos: Solo Líneas'
+      ];
+      btn.textContent = labels[fovStyleMode];
+      renderCameras();
+    }
+
+    function toggleTheme() {
+      darkTheme = !darkTheme;
+      const wrapper = document.getElementById('blueprint-wrapper');
+      const btn = document.getElementById('btn-theme');
+      const floorBg = document.getElementById('floor-bg');
+
+      if (darkTheme) {
+        wrapper.classList.remove('cad-sheet-light');
+        wrapper.classList.add('cad-sheet-dark');
+        btn.textContent = 'Tema: Blueprint Azul';
+        floorBg.setAttribute('fill', 'rgba(15, 23, 42, 0.5)');
+      } else {
+        wrapper.classList.remove('cad-sheet-dark');
+        wrapper.classList.add('cad-sheet-light');
+        btn.textContent = 'Tema: Blanco CAD';
+        floorBg.setAttribute('fill', 'rgba(241, 245, 249, 0.35)');
+      }
+
+      document.querySelectorAll('.cad-border, .cad-stroke').forEach(el => {
+        el.setAttribute('stroke', darkTheme ? '#38bdf8' : '#1e293b');
+      });
+      document.querySelectorAll('.cad-text').forEach(el => {
+        el.setAttribute('fill', darkTheme ? '#f8fafc' : '#1e293b');
+      });
+      document.querySelectorAll('.cad-subtext').forEach(el => {
+        el.setAttribute('fill', darkTheme ? '#94a3b8' : '#475569');
+      });
+
+      renderPerimeterBlocks();
+    }
+
+    function downloadPNG() {
+      const svgElement = document.getElementById('cad-svg');
+      const serializer = new XMLSerializer();
+      let svgString = serializer.serializeToString(svgElement);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 2000;
+      canvas.height = 2700;
+      const ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = darkTheme ? '#0a192f' : '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const img = new Image();
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+
+      img.onload = function () {
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        const link = document.createElement('a');
+        link.download = 'plano_tecnico_almacen_cctv.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      };
+      img.src = url;
+    }
+
+    window.onload = function () {
+      renderMovableStructures();
+      renderPerimeterBlocks();
+      renderCameras();
+
+      const svg = document.getElementById('cad-svg');
+      svg.addEventListener('pointerdown', onBlueprintClickForRelocate);
+
+      window.addEventListener('pointermove', onGlobalPointerMove);
+      window.addEventListener('pointerup', onGlobalPointerUp);
+      window.addEventListener('pointercancel', onGlobalPointerUp);
+    };
+  </script>
+</body>
+</html>
